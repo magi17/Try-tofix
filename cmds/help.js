@@ -6,7 +6,7 @@ module.exports = {
   name: 'help',
   description: 'Show available commands with descriptions',
   role: 1,
-  author: 'GeoDevz69',
+  author: 'GeoDevz69 fix by Mark Martinez',
 
   async execute(senderId, args, pageAccessToken) {
     const commandsDir = path.join(__dirname, '../cmds');
