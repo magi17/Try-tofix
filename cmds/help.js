@@ -7,8 +7,8 @@ module.exports = {
   description: 'Show available commands with descriptions',
   role: 1,
   author: 'GeoDevz69',
-  
-  execute(senderId, args, pageAccessToken) {
+
+  async execute(senderId, args, pageAccessToken) {
     const commandsDir = path.join(__dirname, '../cmds');
     const commandFiles = fs.readdirSync(commandsDir).filter(file => file.endsWith('.js'));
 
@@ -17,69 +17,56 @@ module.exports = {
       return {
         title: `⌬ ${command.name.charAt(0).toUpperCase() + command.name.slice(1)}`,
         description: command.description,
-        payload: `${command.name.toUpperCase()}_PAYLOAD`
       };
     });
 
     const totalCommands = commands.length;
     const commandsPerPage = 5;
     const totalPages = Math.ceil(totalCommands / commandsPerPage);
-    let page = parseInt(args[0], 10);
 
-    // Show all commands
+    // If user typed "help all"
     if (args[0]?.toLowerCase() === 'all') {
-      const helpTextMessage = `╭─❍「 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 」\n│ [ Total Commands : ${totalCommands} ]\n│` +
-        commands.map((cmd, index) => `\n│ ${index + 1}. ${cmd.title}\n│ ○ ${cmd.description}`).join('') +
-        `\n╰────────────⧕\n\n\n├─────☾⋆\n│ » Owner: GeoDevz69\n│ » Age: 14yr old\n│ » Status: Taken\n│ » Hobby: Siya lang\n╰────────────⧕`;
+      for (let i = 0; i < totalPages; i++) {
+        const pageCommands = commands.slice(i * commandsPerPage, (i + 1) * commandsPerPage);
 
-      return sendLongMessage(senderId, helpTextMessage, pageAccessToken);
+        const messageText =
+          `╭─❍「 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 」\n│ » Page View : [ ${i + 1}/${totalPages} ]\n│ » Total Commands : [ ${totalCommands} ]\n│` +
+          pageCommands.map((cmd, index) =>
+            `\n│ ${i * commandsPerPage + index + 1}. ${cmd.title}\n│ ○ ${cmd.description}`
+          ).join('') +
+          `\n╰────────────⧕\n\n├─────☾⋆\n│ » Use "help [page]" to jump to a specific page\n│ » Or "help all" to read all pages again\n╰────────────⧕`;
+
+        // Wait between pages to avoid Facebook limits
+        await delay(i * 1500); // 1.5s between pages
+        sendMessage(senderId, { text: messageText }, pageAccessToken);
+      }
+      return;
     }
 
-    if (isNaN(page) || page < 1) page = 1;
-
+    // Default single-page help
+    let page = parseInt(args[0]) || 1;
+    if (page < 1) page = 1;
     const startIndex = (page - 1) * commandsPerPage;
-    const commandsForPage = commands.slice(startIndex, startIndex + commandsPerPage);
+    const pageCommands = commands.slice(startIndex, startIndex + commandsPerPage);
 
-    if (commandsForPage.length === 0) {
+    if (!pageCommands.length) {
       return sendMessage(senderId, {
-        text: `❌ Oops! Page ${page} doesn't exist. There are only ${totalPages} page(s) available.`,
+        text: `❌ Page ${page} not found. Total pages: ${totalPages}.`,
       }, pageAccessToken);
     }
 
-    const helpTextMessage = `╭─❍「 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 」\n│ » Page View : [ ${page}/${totalPages} ]\n│ » Total Commands : [ ${totalCommands} ]\n│` +
-      commandsForPage.map((cmd, index) => `\n│ ${startIndex + index + 1}. ${cmd.title}\n│ ○ ${cmd.description}`).join('') +
-      `\n╰────────────⧕\n\n\n├─────☾⋆\n│ » Note : Use "help [page]" to switch pages\n│ or "help all" to see all commands!\n╰────────────⧕`;
+    const messageText =
+      `╭─❍「 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 」\n│ » Page View : [ ${page}/${totalPages} ]\n│ » Total Commands : [ ${totalCommands} ]\n│` +
+      pageCommands.map((cmd, index) =>
+        `\n│ ${startIndex + index + 1}. ${cmd.title}\n│ ○ ${cmd.description}`
+      ).join('') +
+      `\n╰────────────⧕\n\n├─────☾⋆\n│ » Use "help [page]" to switch pages\n│ » Or "help all" to see all commands\n╰────────────⧕`;
 
-    const quickReplies = commandsForPage.map((cmd) => ({
-      content_type: "text",
-      title: cmd.title.replace('⌬ ', ''),
-      payload: cmd.payload
-    }));
-
-    sendMessage(senderId, {
-      text: helpTextMessage,
-      quick_replies: quickReplies
-    }, pageAccessToken);
+    sendMessage(senderId, { text: messageText }, pageAccessToken);
   }
 };
 
-function sendLongMessage(bot, text, authToken) {
-  const maxMessageLength = 2000;
-  const delayBetweenMessages = 1000;
-
-  if (text.length > maxMessageLength) {
-    const messages = splitMessageIntoChunks(text, maxMessageLength);
-    sendMessage(bot, { text: messages[0] }, authToken);
-
-    messages.slice(1).forEach((message, index) => {
-      setTimeout(() => sendMessage(bot, { text: message }, authToken), (index + 1) * delayBetweenMessages);
-    });
-  } else {
-    sendMessage(bot, { text }, authToken);
-  }
-}
-
-function splitMessageIntoChunks(message, chunkSize) {
-  const regex = new RegExp(`.{1,${chunkSize}}`, 'g');
-  return message.match(regex);
+// Add delay helper
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
